@@ -1,0 +1,1164 @@
+openapi: 3.0.0
+info:
+  title: OpenVPN Control Plane API
+  description: API for managing OpenVPN servers, clients, and tasks with enhanced authentication
+  version: 2.0.0
+  contact:
+    name: API Support
+    email: support@openvpn.local
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.openvpn.yourdomain.com
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for user/admin authentication
+    
+    agentAuth:
+      type: http
+      scheme: bearer
+      description: Server agent authentication token
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        is_admin:
+          type: boolean
+        is_verified:
+          type: boolean
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: integer
+        country:
+          type: string
+        country_code:
+          type: string
+
+    Server:
+      type: object
+      properties:
+        id:
+          type: integer
+        server_id:
+          type: string
+        hostname:
+          type: string
+        ip:
+          type: string
+        is_active:
+          type: boolean
+        last_seen:
+          type: string
+          format: date-time
+        location_id:
+          type: integer
+        country:
+          type: string
+        country_code:
+          type: string
+        client_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Client:
+      type: object
+      properties:
+        vpn_id:
+          type: string
+        name:
+          type: string
+        vpn_name:
+          type: string
+        server_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: integer
+        task_id:
+          type: string
+        server_id:
+          type: string
+        action:
+          type: string
+          enum: [create, revoke]
+        client_name:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed]
+        user_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+tags:
+  - name: Authentication
+    description: User authentication and registration
+  - name: Admin
+    description: Admin-only endpoints
+  - name: Servers
+    description: Server management
+  - name: Clients
+    description: VPN client management
+  - name: Tasks
+    description: Task management
+  - name: Locations
+    description: VPN location information
+  - name: Health
+    description: API health check
+
+paths:
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Email not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/google:
+    get:
+      tags:
+        - Authentication
+      summary: Initiate Google OAuth login
+      responses:
+        '302':
+          description: Redirect to Google OAuth
+
+  /api/auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth callback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /api/auth/verify-email/{token}:
+    get:
+      tags:
+        - Authentication
+      summary: Verify email address
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Token expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/resend-verification:
+    post:
+      tags:
+        - Authentication
+      summary: Resend verification email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+
+  /api/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user info
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/servers:
+    post:
+      tags:
+        - Admin
+      summary: Create new server (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - server_id
+                - location_id
+              properties:
+                server_id:
+                  type: string
+                location_id:
+                  type: integer
+      responses:
+        '200':
+          description: Server created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  server_id:
+                    type: string
+                  registration_token:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+                  registration_url:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Server already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/admin/servers/{server_id}/regenerate-token:
+    post:
+      tags:
+        - Admin
+      summary: Regenerate server authentication token (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: server_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token regenerated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  server_id:
+                    type: string
+                  auth_token:
+                    type: string
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers:
+    get:
+      tags:
+        - Servers
+      summary: List all servers (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of servers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  servers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Server'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/{server_id}:
+    get:
+      tags:
+        - Servers
+      summary: Get server details (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: server_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Server details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  server:
+                    allOf:
+                      - $ref: '#/components/schemas/Server'
+                      - type: object
+                        properties:
+                          clients:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Client'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/register/{registration_token}:
+    post:
+      tags:
+        - Servers
+      summary: Register server with token
+      parameters:
+        - name: registration_token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Server registered successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Token already used or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/agent/install.sh:
+    get:
+      tags:
+        - Servers
+      summary: Download agent installation script
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Installation script
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Invalid token
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/servers/agent/script:
+    get:
+      tags:
+        - Servers
+      summary: Download agent script (Agent only)
+      security:
+        - agentAuth: []
+      responses:
+        '200':
+          description: Agent script
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/agent/service:
+    get:
+      tags:
+        - Servers
+      summary: Download systemd service file (Agent only)
+      security:
+        - agentAuth: []
+      responses:
+        '200':
+          description: Service file
+          content:
+            text/plain:
+              schema:
+                type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/agent/update-info:
+    post:
+      tags:
+        - Servers
+      summary: Update server information (Agent only)
+      security:
+        - agentAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                ip:
+                  type: string
+      responses:
+        '200':
+          description: Info updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/tasks:
+    get:
+      tags:
+        - Servers
+      summary: Poll for pending tasks (Agent only)
+      security:
+        - agentAuth: []
+      responses:
+        '200':
+          description: Task details or null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Task'
+                  - type: 'null'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/servers/tasks/{task_id}/result:
+    post:
+      tags:
+        - Servers
+      summary: Submit task result (Agent only)
+      security:
+        - agentAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                client:
+                  type: string
+                config:
+                  type: string
+                server_id:
+                  type: string
+                error:
+                  type: string
+      responses:
+        '200':
+          description: Result submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/clients:
+    get:
+      tags:
+        - Clients
+      summary: List VPN clients
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  clients:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Client'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Clients
+      summary: Create VPN client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idempotency-key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - server_id
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                server_id:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '202':
+          description: Task queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  task_id:
+                    type: string
+                  vpn_id:
+                    type: string
+                  server_id:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Server not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/clients/{vpn_id}:
+    delete:
+      tags:
+        - Clients
+      summary: Revoke VPN client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vpn_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: idempotency-key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Task queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  task_id:
+                    type: string
+                  server_id:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/clients/{vpn_id}/config:
+    get:
+      tags:
+        - Clients
+      summary: Download VPN client configuration
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vpn_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Configuration file
+          content:
+            application/x-openvpn-profile:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client not found or config not yet generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: List all tasks (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed]
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/tasks/{task_id}:
+    get:
+      tags:
+        - Tasks
+      summary: Get task details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  task:
+                    allOf:
+                      - $ref: '#/components/schemas/Task'
+                      - type: object
+                        properties:
+                          result:
+                            type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/locations:
+    get:
+      tags:
+        - Locations
+      summary: List available VPN locations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: API health check (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                  servers:
+                    type: integer
+                  clients:
+                    type: integer
+                  tasks:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: API is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string

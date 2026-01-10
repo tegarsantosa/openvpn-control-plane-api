@@ -1,0 +1,35 @@
+{
+  "name": "openvpn-control-plane",
+  "version": "2.0.0",
+  "description": "OpenVPN Control Plane API - Refactored with Context Pattern",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "migrate": "docker compose exec postgres psql -U postgres -d postgres $DATABASE_URL -f /tmp/migration.sql"
+  },
+  "keywords": [
+    "openvpn",
+    "vpn",
+    "control-plane",
+    "api"
+  ],
+  "author": "tegarsantosa",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-validator": "^7.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.8",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.11.3",
+    "swagger-ui-express": "^5.0.0",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

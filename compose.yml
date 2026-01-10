@@ -1,0 +1,15 @@
+services:
+  mailcatcher:
+    image: schickling/mailcatcher
+    ports:
+      - "1080:1080"   # Web UI
+      - "1025:1025"   # SMTP server
+  postgres:
+      image: postgres:15-alpine
+      ports:
+        - "127.0.0.1:5432:5432"
+      environment:
+        - POSTGRES_HOST_AUTH_METHOD=trust
+      volumes:
+        - ./tmp/postgres_data:/var/lib/postgresql/data
+        - ./db/migration.sql:/tmp/migration.sql
