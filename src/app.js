@@ -19,8 +19,12 @@ app.use(express.json());
 app.set('trust proxy', true);
 app.use(passport.initialize());
 
-const swaggerDocument = YAML.load(path.join(__dirname, '../swagger.yaml'));
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+if (process.env.ENABLE_SWAGGER === 'true') {
+  const swaggerDocument = YAML.load(
+    path.join(__dirname, '../docs/swagger.yaml')
+  );
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+}
 
 app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);

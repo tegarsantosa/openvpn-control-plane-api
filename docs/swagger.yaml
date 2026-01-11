@@ -2,15 +2,15 @@ openapi: 3.0.0
 info:
   title: OpenVPN Control Plane API
   description: API for managing OpenVPN servers, clients, and tasks with enhanced authentication
-  version: 2.0.0
+  version: 1.0.0
   contact:
     name: API Support
-    email: support@openvpn.local
+    email: vpn@tegarsantosa.com
 
 servers:
   - url: http://localhost:3000
     description: Local development server
-  - url: https://api.openvpn.yourdomain.com
+  - url: https://vpn.tegarsantosa.com
     description: Production server
 
 components:
