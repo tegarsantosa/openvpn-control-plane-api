@@ -1,4 +1,14 @@
 services:
+  app:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      ports:
+        - "${PORT:-3000}:3000"
+      env_file:
+        - .env
+      depends_on:
+        - postgres
   mailcatcher:
     image: schickling/mailcatcher
     ports:
@@ -12,4 +22,3 @@ services:
         - POSTGRES_HOST_AUTH_METHOD=trust
       volumes:
         - ./tmp/postgres_data:/var/lib/postgresql/data
-        - ./db/migration.sql:/tmp/migration.sql
