@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "migrate": "docker compose exec postgres psql -U postgres -d postgres $DATABASE_URL -f /tmp/migration.sql"
+    "db:migrate": "node src/db/migrate.js migrate",
+    "db:rollback": "node src/db/migrate.js rollback",
+    "db:status": "node src/db/migrate.js status",
+    "db:reset": "node src/db/migrate.js reset && node src/db/migrate.js migrate",
+    "db:create": "node src/db/migrate.js create"
   },
   "keywords": [
     "openvpn",

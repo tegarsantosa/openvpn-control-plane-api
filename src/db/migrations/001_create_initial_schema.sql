@@ -1,3 +1,4 @@
+-- UP
 CREATE TABLE IF NOT EXISTS locations (
   id SERIAL PRIMARY KEY,
   country VARCHAR(255) NOT NULL,
@@ -10,34 +11,6 @@ INSERT INTO locations (country, country_code) VALUES
   ('Taiwan', 'TW')
 ON CONFLICT (country_code) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS settings (
-  id SERIAL PRIMARY KEY,
-  data JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-INSERT INTO settings (data) VALUES (
-  '{
-    "package": {
-      "name": "VPN for ALL",
-      "price": 10,
-      "description": [
-        "All server locations included",
-        "Up to 5 .ovpn accounts",
-        "Unlimited bandwidth",
-        "Monthly subscription",
-        "24/7 support"
-      ]
-    },
-    "user": {
-      "free_minutes": 4320,
-      "free_vpn_client_count": 1,
-      "paid_vpn_client_count": 5
-    }
-  }'::jsonb
-) ON CONFLICT DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
@@ -46,8 +19,6 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin BOOLEAN DEFAULT FALSE,
   is_verified BOOLEAN DEFAULT FALSE,
   verified_at TIMESTAMP,
-  is_paid BOOLEAN DEFAULT FALSE,
-  paid_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -148,7 +119,6 @@ CREATE INDEX IF NOT EXISTS idx_tasks_idempotency ON tasks(idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);
 CREATE INDEX IF NOT EXISTS idx_email_verifications_token ON email_verifications(token);
 CREATE INDEX IF NOT EXISTS idx_clients_vpn_id ON clients(vpn_id);
-CREATE INDEX IF NOT EXISTS idx_users_verified_paid ON users(verified_at, is_paid);
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -158,18 +128,27 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS update_servers_updated_at ON servers;
 CREATE TRIGGER update_servers_updated_at BEFORE UPDATE ON servers
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
 CREATE TRIGGER update_tasks_updated_at BEFORE UPDATE ON tasks
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS update_settings_updated_at ON settings;
-CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings
-FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- DOWN
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+DROP TRIGGER IF EXISTS update_tasks_updated_at ON tasks;
+DROP TRIGGER IF EXISTS update_servers_updated_at ON servers;
+DROP FUNCTION IF EXISTS update_updated_at_column();
+
+DROP TABLE IF EXISTS clients CASCADE;
+DROP TABLE IF EXISTS task_results CASCADE;
+DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS servers CASCADE;
+DROP TABLE IF EXISTS server_registration_tokens CASCADE;
+DROP TABLE IF EXISTS email_verifications CASCADE;
+DROP TABLE IF EXISTS user_ssos CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS locations CASCADE;
