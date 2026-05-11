@@ -9,8 +9,7 @@
     "db:migrate": "node src/db/migrate.js migrate",
     "db:rollback": "node src/db/migrate.js rollback",
     "db:status": "node src/db/migrate.js status",
-    "db:reset": "node src/db/migrate.js reset && node src/db/migrate.js migrate",
-    "db:create": "node src/db/migrate.js create"
+    "db:reset": "node src/db/migrate.js reset && node src/db/migrate.js migrate"
   },
   "keywords": [
     "openvpn",
