@@ -11,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const clientRoutes = require('./routes/clientRoutes');
 const serverRoutes = require('./routes/serverRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const userRoutes = require('./routes/userRoutes');
 const { authenticateAdmin } = require('./middleware/auth');
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/servers', serverRoutes);
 app.use('/api/admin/servers', serverRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/health', authenticateAdmin, async (req, res) => {
   try {

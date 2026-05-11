@@ -10,6 +10,8 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local development server
+  - url: https://musty-aviator-retaining.ngrok-free.dev
+    description: Staging server
   - url: https://vpn.tegarsantosa.com
     description: Production server
 
@@ -156,6 +158,8 @@ tags:
     description: VPN client management
   - name: Tasks
     description: Task management
+  - name: Users
+    description: User information and VPN management
   - name: Locations
     description: VPN location information
   - name: Health
@@ -1103,6 +1107,141 @@ paths:
                       $ref: '#/components/schemas/Location'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/users/vpns:
+    get:
+      tags:
+        - Users
+      summary: List user's VPN connections
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: server_id
+          in: query
+          schema:
+            type: string
+            description: Filter by server ID (optional)
+      responses:
+        '200':
+          description: List of user's VPNs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  vpns:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        vpn_id:
+                          type: string
+                        name:
+                          type: string
+                        vpn_name:
+                          type: string
+                        server_id:
+                          type: string
+                        server_hostname:
+                          type: string
+                        server_ip:
+                          type: string
+                        country:
+                          type: string
+                        country_code:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+                  total:
+                    type: integer
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/users/vpns/{vpn_id}:
+    get:
+      tags:
+        - Users
+      summary: Get detailed information about a specific VPN
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vpn_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: VPN details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  vpn:
+                    type: object
+                    properties:
+                      vpn_id:
+                        type: string
+                      name:
+                        type: string
+                      vpn_name:
+                        type: string
+                      server_id:
+                        type: string
+                      server_hostname:
+                        type: string
+                      server_ip:
+                        type: string
+                      server_is_active:
+                        type: boolean
+                      server_last_seen:
+                        type: string
+                        format: date-time
+                      country:
+                        type: string
+                      country_code:
+                        type: string
+                      config_available:
+                        type: boolean
+                      task_status:
+                        type: string
+                        enum: [pending, processing, completed]
+                      task_id:
+                        type: string
+                      task_created_at:
+                        type: string
+                        format: date-time
+                      task_completed_at:
+                        type: string
+                        format: date-time
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: VPN not found
           content:
             application/json:
               schema:
